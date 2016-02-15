@@ -1,3 +1,5 @@
+package chapter3
+
 object Exercise36 {
 
   def main(args: Array[String]) {

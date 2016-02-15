@@ -1,3 +1,5 @@
+package chapter3
+
 object Exercise315 {
 
   def main(args: Array[String]): Unit = {

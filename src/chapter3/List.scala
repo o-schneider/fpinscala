@@ -1,3 +1,5 @@
+package chapter3
+
 sealed trait List[+A]
 
 // `List` data type, parameterized on a type, `A`
@@ -7,9 +9,7 @@ case object Nil extends List[Nothing]
 /* Another data constructor, representing nonempty lists. Note that `tail` is another `List[A]`,
 which may be `Nil` or another `Cons`.
  */
-case class Cons[+A](head: A, tail: List[A]) extends List[A] {
-
-}
+case class Cons[+A](head: A, tail: List[A]) extends List[A]
 
 object List {
 
