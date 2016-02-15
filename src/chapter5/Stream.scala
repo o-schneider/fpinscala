@@ -1,7 +1,7 @@
 package chapter5
 
 sealed trait Stream[+A] {
-  def headOption: Option[A] = this match {
+  def headOption0: Option[A] = this match {
     case Empty => None
     case Cons(h, t) => Some(h())
   }
@@ -21,11 +21,31 @@ sealed trait Stream[+A] {
     case Cons(h, t) => if (n <= 0) this else t() drop (n - 1)
   }
 
-  def takeWhile(p: A => Boolean): Stream[A] = this match {
+  def takeWhile0(p: A => Boolean): Stream[A] = this match {
     case Empty => this
-    case Cons(h, t) => if (p(h())) Stream.cons(h(), t() takeWhile p) else Empty
+    case Cons(h, t) => if (p(h())) Stream.cons(h(), t() takeWhile0 p) else Empty
   }
 
+  def foldRight[B](z: B)(f: (A, B) => B): B = this match {
+    case Cons(h, t) => f(h(), t().foldRight(z)(f))
+    case _ => z
+  }
+
+  def takeWhile(p: A => Boolean): Stream[A] = foldRight[Stream[A]](Empty)((a, b) => if (p(a)) Stream.cons(a, b) else Empty)
+
+  def headOption: Option[A] = foldRight[Option[A]](None)((a, opt) => Some(a))
+
+  def exists(p: A => Boolean): Boolean = foldRight(false)((a, b) => p(a) || b)
+
+  def forAll(p: A => Boolean): Boolean = foldRight(true)((a, b) => p(a) && b)
+
+  def map[B](f: A => B): Stream[B] = foldRight[Stream[B]](Empty)((a, s) => Stream.cons(f(a), s))
+
+  def filter(p: A => Boolean): Stream[A] = ???
+
+  def append[B](s: => Stream[B]): Stream[A] = ???
+
+  def flatMap[B](f: A => Stream[B]): Stream[B] = ???
 }
 
 case object Empty extends Stream[Nothing]
@@ -47,10 +67,17 @@ object Stream {
 
 object TestStream {
   def main(args: Array[String]) {
-    val stream = Stream(1, 2, 3)
-    println(stream toList)
-    println(stream take 2 toList)
-    println(stream drop 2 toList)
-    println(stream.takeWhile(x => x < 2) toList)
+    println("Stream(1, 2, 3) toList : " + (Stream(1, 2, 3) toList))
+    println("Stream(1, 2, 3) take 2 toList : " + (Stream(1, 2, 3) take 2 toList))
+    println("Stream(1, 2, 3) drop 2 toList : " + (Stream(1, 2, 3) drop 2 toList))
+    println("Stream(1, 2, 3).takeWhile0(x => x < 2) toList : " + (Stream(1, 2, 3).takeWhile0(x => x < 2) toList))
+    println("Stream(1, 2, 3) exists (_ == 2) : " + (Stream(1, 2, 3) exists (_ == 2)))
+    println("Stream(1, 2, 3) exists (_ == 5) : " + (Stream(1, 2, 3) exists (_ == 5)))
+    println("Stream(1, 2, 3) forAll (_ % 2 == 0) : " + (Stream(1, 2, 3) forAll (_ % 2 == 0)))
+    println("Stream(2, 4, 6) forAll (_ % 2 == 0) : " + (Stream(2, 4, 6) forAll (_ % 2 == 0)))
+    println("Stream(1, 2, 3).takeWhile(x => x < 2) toList : " + (Stream(1, 2, 3).takeWhile(x => x < 2) toList))
+    println("Stream(1, 2, 3) headOption0 : " + (Stream(1, 2, 3) headOption0))
+    println("Stream(1, 2, 3) headOption : " + (Stream(1, 2, 3) headOption))
+    println("Stream(1, 2, 3) map (_ * 2) toList : " + (Stream(1, 2, 3) map (_ * 2) toList))
   }
 }
