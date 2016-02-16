@@ -41,11 +41,11 @@ sealed trait Stream[+A] {
 
   def map[B](f: A => B): Stream[B] = foldRight[Stream[B]](Empty)((a, s) => Stream.cons(f(a), s))
 
-  def filter(p: A => Boolean): Stream[A] = ???
+  def filter(p: A => Boolean): Stream[A] = foldRight[Stream[A]](Empty)((a, s) => if (p(a)) Stream.cons(a, s) else s)
 
-  def append[B](s: => Stream[B]): Stream[A] = ???
+  def append[B >: A](s: => Stream[B]): Stream[B] = foldRight[Stream[B]](s)((a, s) => Stream.cons(a, s))
 
-  def flatMap[B](f: A => Stream[B]): Stream[B] = ???
+  def flatMap[B](f: A => Stream[B]): Stream[B] = foldRight[Stream[B]](Empty)((a, s) => f(a) append s)
 }
 
 case object Empty extends Stream[Nothing]
@@ -79,5 +79,8 @@ object TestStream {
     println("Stream(1, 2, 3) headOption0 : " + (Stream(1, 2, 3) headOption0))
     println("Stream(1, 2, 3) headOption : " + (Stream(1, 2, 3) headOption))
     println("Stream(1, 2, 3) map (_ * 2) toList : " + (Stream(1, 2, 3) map (_ * 2) toList))
+    println("Stream(1, 2, 3) filter (_ % 2 == 0) toList : " + (Stream(1, 2, 3) filter (_ % 2 == 0) toList))
+    println("Stream(1, 2, 3) append (Stream(4, 5, 6)) toList : " + (Stream(1, 2, 3) append Stream(4, 5, 6) toList))
+    println("Stream(1, 2, 3) flatMap (a => Stream(a, a)) toList) : " + (Stream(1, 2, 3) flatMap (a => Stream(a, a)) toList))
   }
 }
