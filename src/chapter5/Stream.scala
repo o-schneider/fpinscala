@@ -26,7 +26,7 @@ sealed trait Stream[+A] {
     case Cons(h, t) => if (p(h())) Stream.cons(h(), t() takeWhile0 p) else Empty
   }
 
-  def foldRight[B](z: B)(f: (A, B) => B): B = this match {
+  def foldRight[B](z: => B)(f: (A, => B) => B): B = this match {
     case Cons(h, t) => f(h(), t().foldRight(z)(f))
     case _ => z
   }
@@ -70,17 +70,19 @@ object TestStream {
     println("Stream(1, 2, 3) toList : " + (Stream(1, 2, 3) toList))
     println("Stream(1, 2, 3) take 2 toList : " + (Stream(1, 2, 3) take 2 toList))
     println("Stream(1, 2, 3) drop 2 toList : " + (Stream(1, 2, 3) drop 2 toList))
-    println("Stream(1, 2, 3).takeWhile0(x => x < 2) toList : " + (Stream(1, 2, 3).takeWhile0(x => x < 2) toList))
+    println("Stream(1, 2, 3) takeWhile0 (x => x < 2) toList : " + (Stream(1, 2, 3) takeWhile0 (x => x < 2) toList))
     println("Stream(1, 2, 3) exists (_ == 2) : " + (Stream(1, 2, 3) exists (_ == 2)))
     println("Stream(1, 2, 3) exists (_ == 5) : " + (Stream(1, 2, 3) exists (_ == 5)))
     println("Stream(1, 2, 3) forAll (_ % 2 == 0) : " + (Stream(1, 2, 3) forAll (_ % 2 == 0)))
     println("Stream(2, 4, 6) forAll (_ % 2 == 0) : " + (Stream(2, 4, 6) forAll (_ % 2 == 0)))
-    println("Stream(1, 2, 3).takeWhile(x => x < 2) toList : " + (Stream(1, 2, 3).takeWhile(x => x < 2) toList))
+    println("Stream(1, 2, 3) takeWhile (x => x < 2) toList : " + (Stream(1, 2, 3) takeWhile (x => x < 2) toList))
     println("Stream(1, 2, 3) headOption0 : " + (Stream(1, 2, 3) headOption0))
     println("Stream(1, 2, 3) headOption : " + (Stream(1, 2, 3) headOption))
     println("Stream(1, 2, 3) map (_ * 2) toList : " + (Stream(1, 2, 3) map (_ * 2) toList))
     println("Stream(1, 2, 3) filter (_ % 2 == 0) toList : " + (Stream(1, 2, 3) filter (_ % 2 == 0) toList))
     println("Stream(1, 2, 3) append (Stream(4, 5, 6)) toList : " + (Stream(1, 2, 3) append Stream(4, 5, 6) toList))
     println("Stream(1, 2, 3) flatMap (a => Stream(a, a)) toList) : " + (Stream(1, 2, 3) flatMap (a => Stream(a, a)) toList))
+    println("=== EXECUTION TRACE")
+    println(Stream(1, 2, 3, 4).map(a => {println("map on "+a); a + 10}).filter(a => {println("filter on "+a); a % 2 == 0}).toList)
   }
 }
