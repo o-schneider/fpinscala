@@ -86,10 +86,20 @@ sealed trait Stream[+A] {
 
   def hasSubsequence[B >: A](s: Stream[B]): Boolean = tails exists (_ startsWith s)
 
-  def scanRight[B >: A](z: B)(f: (A, B) => B): Stream[B] = foldRight(Stream(z))((v, acc) => acc match {
-    case Cons(h, t) => Stream.cons(f(v, h()), acc)
-    case _ => Empty
+  def scanRight[B >: A](z: B)(f: (A, B) => B): Stream[B] = foldRight(Stream(z))((v, acc) => {
+    lazy val acc2 = acc
+    acc2 match {
+      case Cons(h, t) => Stream.cons(f(v, h()), acc2)
+      case _ => Empty
+    }
   })
+
+  def scanRightWithoutPatternMatching[B >: A](z: B)(f: (A, B) => B): Stream[B] = foldRight((Stream(z), z))((v, acc) => {
+    lazy val acc2 = acc
+    val result: B = f(v, acc2._2)
+    (Stream.cons(result, acc2._1), result)
+  })._1
+
 }
 
 case object Empty extends Stream[Nothing]
@@ -186,5 +196,6 @@ object TestStream {
     println("Stream(1, 2, 3) hasSubsequence Stream.empty) : " + (Stream(1, 2, 3) hasSubsequence Stream.empty))
     println("Stream.empty hasSubsequence Stream(1, 2)) : " + (Stream.empty hasSubsequence Stream(1, 2)))
     println("Stream(1,2,3).scanRight(0)(_+_) toList : " + (Stream(1, 2, 3).scanRight(0)(_ + _) toList))
+    println("Stream(1,2,3).scanRightWithoutPatternMatchin(0)(_+_) toList : " + (Stream(1, 2, 3).scanRightWithoutPatternMatching(0)(_ + _) toList))
   }
 }
