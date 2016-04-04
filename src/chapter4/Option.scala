@@ -44,5 +44,6 @@ object TestOpt {
   def main(args: Array[String]) {
     println(Option.traverse(List("1", "2", "3"))(s=>Try(s.toInt)))
     println(Option.traverse(List("1", "lol", "3"))(s=>Try(s.toInt)))
+    Option.map2(Some(1), Some(2))((a, b) => println("" + a + b))
   }
 }
