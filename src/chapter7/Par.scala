@@ -7,17 +7,15 @@ object Par {
 
   def unit[A](a: A): Par[A] = (es) => UnitFuture(a)
 
-  def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = es => {
-    val af = a(es)
-    val bf = b(es)
-    UnitFuture(f(af.get, bf.get))
-  }
+  def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] =
+    es => {
+      val (af, bf) = (a(es), b(es))
+      Map2Future(af, bf, f)
+    }
 
-  def map2[A, B, C](a: Par[A], b: Par[B], timeout: Long, timeUnit: TimeUnit)(f: (A, B) => C): Par[C] = es => {
-    val af = a(es)
-    val bf = b(es)
-    UnitFuture(Map2Future(af, bf, f).get(timeout, timeUnit))
-  }
+  def map[A, B](pa: Par[A])(f: A => B): Par[B] = map2(pa, unit(()))((a, _) => f(a))
+
+  def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
 
   def fork[A](a: => Par[A]): Par[A] =
     es => es.submit(new Callable[A] {
@@ -30,13 +28,28 @@ object Par {
 
   def asyncF[A, B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
 
-  private case class Map2Future[A,B,C](f1: Future[A], f2: Future[B], f: (A,B) => C) extends Future[C] {
+  def sequence[A](ps: List[Par[A]]): Par[List[A]] = ps.foldRight[Par[List[A]]](unit(List()))((p, acc) => map2(p, acc)((a, l) => a :: l))
+
+  def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = fork {
+    val fbs: List[Par[B]] = ps.map(asyncF(f))
+    sequence(fbs)
+  }
+
+  def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] =
+    as.foldRight[Par[List[A]]](unit(List()))((a, acc) => map2(asyncF(f)(a), acc)((keep, l) => if (keep) a :: l else l))
+
+
+  private case class Map2Future[A, B, C](f1: Future[A], f2: Future[B], f: (A, B) => C) extends Future[C] {
     @volatile var cache: Option[C] = None
 
     override def isDone: Boolean = cache.isDefined
+
     override def isCancelled: Boolean = f1.isCancelled || f2.isCancelled
+
     override def get(): C = compute(Long.MaxValue)
+
     override def get(timeout: Long, unit: TimeUnit): C = compute(TimeUnit.NANOSECONDS.convert(timeout, unit))
+
     override def cancel(mayInterruptIfRunning: Boolean): Boolean = f1.cancel(mayInterruptIfRunning) || f2.cancel(mayInterruptIfRunning)
 
     def compute(timeout: Long): C = {
@@ -53,8 +66,11 @@ object Par {
 
   private case class UnitFuture[A](get: A) extends Future[A] {
     def isDone = true
+
     def get(timeout: Long, units: TimeUnit): A = get
+
     def isCancelled = false
+
     def cancel(evenIfRunning: Boolean): Boolean = false
   }
 
@@ -67,6 +83,8 @@ object Par {
     }
 
   def main(args: Array[String]) {
-    println(run(sum(IndexedSeq(1, 2, 3))))
+    val executor = Executors.newSingleThreadExecutor()
+    println(run(executor)(sequence(List(unit(1), unit(2), unit(3)))).get())
+    println(run(executor)(parFilter(List(1, 2, 3))(_ % 2 == 0)).get())
   }
 }
