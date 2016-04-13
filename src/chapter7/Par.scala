@@ -1,26 +1,59 @@
 package chapter7
 
-import java.util.concurrent.{Callable, Executors}
+import java.util.concurrent._
 
 object Par {
-  type Par[A] = () => A
+  type Par[A] = ExecutorService => Future[A]
 
-  def unit[A](a: A): Par[A] = () => a
+  def unit[A](a: A): Par[A] = (es) => UnitFuture(a)
 
-  def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = unit(f(run(a), run(b)))
+  def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = es => {
+    val af = a(es)
+    val bf = b(es)
+    UnitFuture(f(af.get, bf.get))
+  }
 
-  def fork[A](a: => Par[A]): Par[A] = a
+  def map2[A, B, C](a: Par[A], b: Par[B], timeout: Long, timeUnit: TimeUnit)(f: (A, B) => C): Par[C] = es => {
+    val af = a(es)
+    val bf = b(es)
+    UnitFuture(Map2Future(af, bf, f).get(timeout, timeUnit))
+  }
+
+  def fork[A](a: => Par[A]): Par[A] =
+    es => es.submit(new Callable[A] {
+      override def call(): A = a(es).get
+    })
 
   def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
 
-  def run[A](a: Par[A]): A = {
-    Executors.newSingleThreadExecutor().submit(new Callable[A] {
-      override def call(): A = {
-        val a1: A = a()
-        println("called for " + a1)
-        a1
-      }
-    }).get()
+  def run[A](es: ExecutorService)(a: Par[A]): Future[A] = a(es)
+
+  private case class Map2Future[A,B,C](f1: Future[A], f2: Future[B], f: (A,B) => C) extends Future[C] {
+    @volatile var cache: Option[C] = None
+
+    override def isDone: Boolean = cache.isDefined
+    override def isCancelled: Boolean = f1.isCancelled || f2.isCancelled
+    override def get(): C = compute(Long.MaxValue)
+    override def get(timeout: Long, unit: TimeUnit): C = compute(TimeUnit.NANOSECONDS.convert(timeout, unit))
+    override def cancel(mayInterruptIfRunning: Boolean): Boolean = f1.cancel(mayInterruptIfRunning) || f2.cancel(mayInterruptIfRunning)
+
+    def compute(timeout: Long): C = {
+      val start = System.nanoTime()
+      val a = f1.get(timeout, TimeUnit.NANOSECONDS)
+      val end = System.nanoTime()
+      val timeLeft = timeout - (end - start)
+      val b = f2.get(timeLeft, TimeUnit.NANOSECONDS)
+      val c = f(a, b)
+      cache = Some(c)
+      c
+    }
+  }
+
+  private case class UnitFuture[A](get: A) extends Future[A] {
+    def isDone = true
+    def get(timeout: Long, units: TimeUnit): A = get
+    def isCancelled = false
+    def cancel(evenIfRunning: Boolean): Boolean = false
   }
 
   def sum(ints: IndexedSeq[Int]): Par[Int] =
