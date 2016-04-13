@@ -28,6 +28,8 @@ object Par {
 
   def run[A](es: ExecutorService)(a: Par[A]): Future[A] = a(es)
 
+  def asyncF[A, B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
+
   private case class Map2Future[A,B,C](f1: Future[A], f2: Future[B], f: (A,B) => C) extends Future[C] {
     @volatile var cache: Option[C] = None
 
