@@ -38,6 +38,19 @@ object Par {
   def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] =
     as.foldRight[Par[List[A]]](unit(List()))((a, acc) => map2(asyncF(f)(a), acc)((keep, l) => if (keep) a :: l else l))
 
+  def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] = flatMap(cond)(b => if (b) t else f)
+
+  def choiceN[A](n: Par[Int])(choices: List[Par[A]]): Par[A] = flatMap(n)(choices(_))
+
+  def choiceMap[K, V](key: Par[K])(choices: Map[K, Par[V]]): Par[V] = flatMap(key)(choices(_))
+
+  def flatMap[A, B](a: Par[A])(f: A => Par[B]): Par[B] = es => f(run(es)(a).get)(es)
+
+  def flatMapWithJoin[A, B](a: Par[A])(f: A => Par[B]): Par[B] = join(map(a)(f))
+
+  def join[A](a: Par[Par[A]]): Par[A] = es => run(es)(a).get()(es)
+
+  def joinWithFlatMap[A](a: Par[Par[A]]): Par[A] = flatMap(a)(a => a)
 
   private case class Map2Future[A, B, C](f1: Future[A], f2: Future[B], f: (A, B) => C) extends Future[C] {
     @volatile var cache: Option[C] = None
@@ -82,9 +95,10 @@ object Par {
       Par.map2(Par.fork(sum(l)), Par.fork(sum(r)))(_ + _)
     }
 
+
   def main(args: Array[String]) {
+    val a = lazyUnit(42 + 1)
     val executor = Executors.newSingleThreadExecutor()
-    println(run(executor)(sequence(List(unit(1), unit(2), unit(3)))).get())
-    println(run(executor)(parFilter(List(1, 2, 3))(_ % 2 == 0)).get())
+
   }
 }
