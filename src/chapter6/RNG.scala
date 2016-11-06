@@ -94,6 +94,7 @@ object RNG {
     (f(a, b), rng3)
   })
 
+  def boolean: Rand[Boolean] = State(rng => rng.nextInt match { case (i,rng2) => (i%2==0,rng2) })
 
   def both[A, B](ra: Rand[A], rb: Rand[B]): Rand[(A, B)] = ra.map2(rb)((_, _))
 
